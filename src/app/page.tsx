@@ -1,101 +1,144 @@
+import { PAGE_SIZE } from "@/helper/constants";
+import {
+  getAllPokemonDetails,
+  getPokemons,
+  getPokemonTypes,
+} from "@/helper/pokemon";
 import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+export default async function Home(props: PageProps) {
+  const { searchParams } = props;
+  const offset = searchParams.offset ?? "0";
+  const types: string[] = searchParams.types
+    ? searchParams.types.split(",")
+    : [];
+
+  const pokemonTypes = await getPokemonTypes();
+
+  // remove non-existen type
+  const existedTypes = pokemonTypes.results.filter((i) =>
+    types.includes(i.name)
+  );
+  const typeUrls = existedTypes.map((i) => i.url); // get url only
+
+  const pokemons = await getPokemons({
+    offset,
+    typeUrls,
+  });
+  const pokemonDetails: IPokemon[] = await getAllPokemonDetails(pokemons);
+
+  const total = pokemons?.count ?? 0;
+
+  // calculate pagination
+  const prevPageOffset = +offset - PAGE_SIZE;
+  const nextPageOffset = Math.min(+offset + PAGE_SIZE, total);
+
+  const hasNext = nextPageOffset < total;
+  const hasPrev = prevPageOffset >= 0;
+
+  const disabledLinkClassName =
+    "opacity-40 cursor-not-allowed pointer-events-none";
+  const prevClassName = !hasPrev ? disabledLinkClassName : "";
+  const nextClassName = !hasNext ? disabledLinkClassName : "";
+
+  const typesName = existedTypes.map((i) => i.name).join(",");
+  const nextLink = typesName
+    ? `?types=${typesName}&offset=${nextPageOffset}`
+    : `?offset=${nextPageOffset}`;
+  const prevLink = typesName
+    ? `?types=${typesName}&offset=${prevPageOffset}`
+    : `?offset=${prevPageOffset}`;
+
+  const selectedClassName = "!text-white !bg-red-900";
+  const hidden = "hidden";
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <main>
+      <div className="mx-auto max-w-screen-xl">
+        <div className="flex items-center mx-4 my-4">
+          <div className="mr-2 my-4 font-bold self-start">Types:</div>
+          <div className="flex flex-wrap">
+            {pokemonTypes && pokemonTypes.results
+              ? pokemonTypes.results.map((i) => {
+                  const isSelected = types.includes(i.name);
+                  const params = new URLSearchParams();
+                  const newTypes = isSelected
+                    ? types.filter((name: string) => name !== i.name)
+                    : [...types, i.name];
+                  if (newTypes.length) {
+                    params.set("types", newTypes.join(","));
+                  } else {
+                    params.delete("types");
+                  }
+                  return (
+                    <Link
+                      href={`/?${params}`}
+                      key={i.name}
+                      className={`px-2 py-2 mx-2 my-2 border-red-900 border-2 rounded-md font-bold text-red-900 ${
+                        isSelected ? selectedClassName : ""
+                      }`}
+                    >
+                      {i.name}
+                    </Link>
+                  );
+                })
+              : null}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        <div className={`my-12 mx-4 font-bold ${total > 0 ? "" : hidden}`}>
+          {total} results found.
+        </div>
+      </div>
+      {pokemonDetails.length ? (
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-4">
+          {pokemonDetails.map((pokemon) => {
+            const src = pokemon.sprites.other["official-artwork"].front_default;
+            return (
+              <div key={pokemon.name}>
+                <div className="h-24 w-24 mx-auto">
+                  {src ? (
+                    <Image
+                      src={src}
+                      alt={pokemon.name}
+                      title={pokemon.name}
+                      width="100"
+                      height="100"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 rounded flex justify-center items-center text-xs">Not Found</div>
+                  )}
+                </div>
+                <div className="text-center">{pokemon.name}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center text-3xl mx-auto my-24 font-bold">
+          No results found.
+        </div>
+      )}
+      <div className="mt-8 flex justify-center">
+        {/* <Link
+          href="/"
+          className="p-2 bg-red-900 rounded-md text-white mr-4"
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          First
+        </Link> */}
+        <Link
+          href={prevLink}
+          className={`p-2 bg-red-900 rounded-md text-white mr-4 ${prevClassName}`}
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          Prev
+        </Link>
+        <Link
+          href={nextLink}
+          className={`p-2 bg-red-900 rounded-md text-white mr-4 ${nextClassName}`}
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          Next
+        </Link>
+      </div>
+    </main>
   );
 }
