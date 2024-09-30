@@ -1,6 +1,5 @@
 import { PAGE_SIZE } from "@/helper/constants";
 import {
-  getAllPokemonDetails,
   getPokemons,
   getPokemonTypes,
 } from "@/helper/pokemon";
@@ -27,7 +26,7 @@ export default async function Home(props: PageProps) {
     offset,
     typeUrls,
   });
-  const pokemonDetails: IPokemon[] = await getAllPokemonDetails(pokemons);
+  // const pokemonDetails: IPokemon[] = await getAllPokemonDetails(pokemons);
 
   const total = pokemons?.count ?? 0;
 
@@ -65,7 +64,7 @@ export default async function Home(props: PageProps) {
           {total} results found.
         </div>
       </div>
-      <PokemonList pokemonDetails={pokemonDetails} />
+      <PokemonList pokemons={pokemons.results} />
       <div className="mt-8 flex justify-center">
         <Link
           href={prevLink}

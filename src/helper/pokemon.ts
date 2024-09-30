@@ -10,8 +10,14 @@ export async function getPokemons(
         fetch(url)
           .then((i) => i.json())
           .then((p) => p.pokemon)
+          .catch((e) => console.log('[Error] fetch type: ', url, e))
       )
     );
+    if (!data) return {
+      success: false,
+      count: 0,
+      results: [],
+    }
     const isOnlyOneFilter = 1 === typeUrls.length;
 
     const counter: { [key: string]: number } = {};
@@ -38,6 +44,7 @@ export async function getPokemons(
 
     const limit = PAGE_SIZE + +offset;
     return {
+      success: true,
       count: filteredData.length,
       results: filteredData.slice(+offset, limit),
     };
@@ -47,16 +54,40 @@ export async function getPokemons(
     limit: `${PAGE_SIZE}`,
   });
   const url = `${BASE_URL}/pokemon?${searchParams}`;
-  const data = await fetch(url);
-  const pokemons: IResponsePokemon = await data.json();
-  return pokemons;
+  try {
+    const data = await fetch(url);
+    const pokemons: IResponsePokemon = await data.json();
+    return {
+      success: true,
+      ...pokemons
+    };
+  } catch (error) {
+    console.log('Error: ', error);
+    return {
+      success: false,
+      count: 0,
+      results: [],
+    }
+  }
 }
 
 export async function getPokemonTypes() {
   const url = `${BASE_URL}/type?offset=0&limit=${PAGE_SIZE}`;
-  const data = await fetch(url);
-  const types: IResponseType = await data.json();
-  return types;
+  try {
+    const data = await fetch(url);
+    const types: IResponseType = await data.json();
+    return {
+      success: true,
+      ...types,
+    };
+  } catch (error) {
+    console.log('[Error] ', url, error)
+    return {
+      success: false, 
+      count: 0,
+      results: [],
+    }
+  }
 }
 
 export function getAllPokemonDetails(pokemons: IResponsePokemon) {
